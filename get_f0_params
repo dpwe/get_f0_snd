@@ -1,0 +1,4 @@
+min_f0 60.0
+max_f0 650.0
+wind_dur 0.02
+frame_step 0.01

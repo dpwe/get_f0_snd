@@ -1,0 +1,241 @@
+.\" Copyright (c) 1996 Entropic Research Laboratory, Inc.; All rights reserved
+.\" %W% %G% ERL
+.ds ]W (c) 1993 - 1996 Entropic Research Laboratory, Inc.
+.TH  GET_F0 1\-ESPS 9/5/96
+.SH NAME
+
+.nf
+get_f0 \- robust analysis of speech fundamental frequency (pitch tracking)
+.fi
+.SH SYNOPSIS
+.B
+get_f0
+[
+.BI \-P " param_file"
+][
+.BI \-{pr} "range"
+][
+.BI \-s " range"
+][
+.BI \-S " frame_step"
+][
+.BI \-i " frame_step"
+][
+.BI \-x " debug_level"
+]
+.I in_file
+.I out_file
+.PP
+.SH DESCRIPTION
+\fIGet_f0\fR implements a fundamental frequency (F0) estimation
+algorithm using the normalized cross correlation function and dynamic
+programming.  The algorithm implemented here is described exactly in
+the reference cited below.
+.PP
+The input file \fIin_file\fR is a standard FEA_SD sampled-data data
+file.  The output file \fIout_file\fR is a FEA file containing 4
+fields: \fIF0\fR for fundamental frequency estimate, \fIprob_voice\fR
+for "probability of voicing", \fIrms\fR for local root mean squared
+measurements, and \fIac_peak\fR for the peak normalized
+cross-correlation value that was found to determine the output F0.
+The RMS value of each record is computed based on a 30 msec hanning
+window with its left edge placed 5 msec before the beginning of the
+frame.  In unvoiced regions, \fIac_peak\fI is the largest
+cross-correlation value found at any lag.  The \fIprob_voice\fR element
+only takes on two values: 0 and 1, whereas in the older \fIformant\fR
+program, it was a graded (though error prone) measure.
+.PP
+Note that the analysis frame onset is well defined as the point where
+the reference window used for cross-correlation begins.  However the
+effective frame size is really a function of the local F0, except for
+the RMS measurement as stated above.
+.PP
+If \fIin_file\fR is replace by by "-", the standard input is  read.
+If \fIout_file\fR is  replaced  by  "-", the standard output is
+written.  The processing is truly stream oriented.  There is no limit
+on the length of the input sequence.
+.PP
+\fIGet_f0\fR does not remove the DC component from the input signal.
+Large DC offsets will impair the voiced/unvoiced decision and lead to
+misleading RMS measurements, especially in low-amplitude regions.  It
+is recommended that the DC component be removed by a program such as
+\fIrem_dc\fR(1-ESPS) before using \fIget_f0\fR.
+.PP
+Note that \fIget_f0\fR is designed to replace the pitch tracking
+function of the older \fIformant\fR program. fIGet_f0\fR is both
+faster and more accurate than \fIformant\fR, and does not have the
+batch-processing limitations of the latter.
+.PP
+.SH OPTIONS
+.PP
+The following options are supported:
+.TP
+.BI \-P " param_file \fR[params]\fP"
+uses the parameter file \fIparam_file\fR rather than the default, 
+which is \fIparams\fR. 
+.TP
+.BI \-r " first:last"
+.TP
+.BI \-r " first:+incr"
+Determines the range of points from input file.  In the first form, a
+pair of unsigned integers gives the first and last points of the
+range.  If \fIfirst\fR is omitted, 1 is used.  If \fIlast\fR is
+omitted, the last point in the file is used.  The second form is
+equivalent to the first with \fIlast = first + incr\fR.  If no range
+is specified, the whole input file is processed.
+.TP
+.BI \-p " "
+Same as the \fB-r\fR option.  (Note that this is a change from version
+5.0, where \fB-p\fR was used for the frame intertval option.)
+.TP
+.BI \-s " first:last"
+.TP
+.BI \-s " first:+incr"
+Same function as the \fB-r\fR option, but specifies the range of input data 
+in seconds
+.TP
+.BI \-i " frame_step [0.01]"
+Specifies frame step in second, between 0.1 and 1/sampling rate in sec.
+.TP
+.BI \-S " frame_step [0.01 * sampling frequency]"
+Same as the -i option, but specifies frame step in samples
+.TP
+.BI \-x " debug_level \fR[0]\fP"
+If 
+.I debug_level
+is positive,
+.I get_f0
+prints debugging messages and other information on the standard error
+output.  The messages proliferate as the  
+.I debug_level
+increases.  If \fIdebug_level\fP is 0 (the default), no messages are
+printed.  
+.SH ESPS PARAMETERS
+\fIGet_f0\fR is designed for use "as is" with little or no need to
+change its parameters under most circumstances.  Exceptions include
+the frame rate, and the maximum F0 and minimum F0 to track.  If the F0
+estimates from \fIget_f0\fR do not appear reasonable, you should check
+your signal or signal conditioning before beginning parameter
+adjustments.  Common causes of difficulty include a strong periodic
+component in the background causing the voicing to stay on, or a
+significant DC offset causing poor RMS estimates.  The following
+parameter file options are supported.
+.TP
+.I "start - integer"
+.IP
+The first point in the input sampled data file that is processed.  A
+value of 1 denotes the first sample in the file.  This is only read
+if the \fB\-p\fP option is not used.  If it is not in the parameter
+file, the default value of 1 is used.  
+.TP
+.I "nan - integer"
+.IP
+The total number of data points to process.  If 
+.I nan
+is 0, the whole file is processed.  
+.I Nan
+is read only if the \fB\-p\fP option is not used.  (See the 
+discussion under \fB\-l\fP).
+.TP
+.I " frame_step - float"
+Analysis frame step interval. Computation increases as 1/\fIframe_step\fR. 
+Valid value lies in [1/sampling rate,  0.1].
+.TP
+.I " min_f0 - float"
+Minimum F0 to search for. Note that computational cost grows as
+1/min_f0.  Valid values are greater than or equal to (Fs/10000) Hz,
+where Fs is the sample rate of the input speech signal.  Default is
+50.0.  \fImin_f0\fR and \fImax_f0\fR determine the number of
+cross-correlation lags to compute for each frame.
+.TP
+.I " max_f0 - float"
+Maximum F0 to search for.  Valid values are greater than \fImin_F0\fR and
+smaller than one half the sampling rate of input file.  Default is 550.0.
+\fImin_f0\fR and \fImax_f0\fR determine the number of
+cross-correlation lags to compute for each frame.
+.PP
+The default settings of the following parameters were determined by 
+exhaustive search of the parameter space using hand-verified
+data as the reference.  Twiddling with the parameters is not recommended.
+.TP
+.I " cand_thresh - float"
+Determines cross correlation peak height required for a peak to be
+considered a pitch-peak candidate.  Valid value lies in [.01, .99].
+Default is 0.3.
+.TP
+.I " lag_weight - float"
+Amount of weight given to the shortness of the proposed pitch interval.
+Higher numbers make high F0 estimates more likely. Valid value lies in [0, 1].
+Default is 0.3.
+.TP
+.I " freq_weight - float"
+Strength of F0 continuity.  Higher numbers impose smoother contours. 
+Valid value lies in [0, 1].  Default is 0.02.
+.TP
+.I " trans_cost - float"
+Fixed cost of making a voicing-state transition.  Higher numbers discourage
+state changes. Valid value lies in [0, 1].  Default is 0.005.
+.TP
+.I " trans_amp - float"
+Voicing-state transition cost modulated by the local rate of amplitude
+change.  Higher numbers discourage transitions EXCEPT when the rate of
+amplitude change is great. Valid values lie in [0, 100].  Default is 0.5.
+.TP
+.I " trans_spec - float"
+Voicing-state transition cost modulated by the local rate of spectral
+change.  Higher numbers discourage transitions EXCEPT when the rate of
+spectral change is great. Valid values lie in [0, 100].  Default is
+0.5.
+.TP
+.I " voice_bias - float"
+Determines fixed preference for voiced or unvoiced state.  Positive
+numbers encourage the voiced hypothesis, negative numbers the
+unvoiced. Valid values lie in [-1, 1].  Default is 0.0.
+.TP
+.I " double_cost - float"
+The cost of a rapid one-octave (up or down) F0 change.  High numbers
+discourage any jumps, low numbers permit octave jumps. Valid values lie in
+[0, 10].  Default is 0.35.
+.TP
+.I " wind_dur - float"
+Size of correlation window.  Computation increases directly as wind_dur. 
+Valid values lie in [10/sampling rate, .1].  Default is 0.0075.
+.TP
+.I " n_cands - integer"
+The maximum number of correlation peaks considered as possible
+F0-peak candidates in any frame.  At most, the top n-cands candidates
+are considered in each frame. The computational cost grows approximately
+as n_cands SQUARED.  Valid values lie in [3, 100].  Default is 20.
+.PP
+.SH ESPS COMMON
+No ESPS common parameter processing is supported.
+.PP
+.SH ESPS HEADERS
+The usual \fIrecord_freq\fR, \fIstart_time\fR header items, all 
+supported parameters are stored as generic header items.  In addition,
+the \fIrecord_freq\fR header item of the \fIin_file\fR input file is
+saved as the \fIsrc_sf\fR header item.
+.PP
+.SH FUTURE CHANGES
+In a future release DC will be removed prior to RMS comutation.  Also,
+an optional element may be added to the output vector to include RMS
+computed on the preemphasized speech.
+.PP
+.SH EXAMPLES
+.PP
+.SH ERRORS AND DIAGNOSTICS
+.PP
+.SH BUGS
+.PP
+None known.
+.SH REFERENCES
+Talkin, D. (1995). A Robust Algorithm for Pitch Tracking (RAPT). In
+Kleijn, W. B. and Paliwal, K. K. (Eds.), \fISpeech Coding and
+Synthesis\fR. New York: Elsevier.
+
+.PP
+.SH "SEE ALSO"
+FEA(5\-ESPS), epochs(1-ESPS), formant(1-ESPS), rem_dc(1-ESPS)
+.PP
+.SH AUTHORS
+David Talkin, Derek Lin
